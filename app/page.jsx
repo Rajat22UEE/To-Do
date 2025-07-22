@@ -1,82 +1,105 @@
-'use client'
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
+'use client';
+
+import { useState, useEffect } from 'react';
+import TodoForm from './components/TodoForm';
+import TodoList from './components/TodoList';
+import { CheckCircle2 } from 'lucide-react';
 
 export default function Home() {
-  const [task, setTask] = useState('')
-  const [tasks, setTasks] = useState([])
-  const [error, setError] = useState('')
+  const [todos, setTodos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // Fetch todos on component mount
   useEffect(() => {
-    const savedTasks = JSON.parse(localStorage.getItem('tasks')) || []
-    setTasks(savedTasks)
-  }, [])
+    fetchTodos();
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('tasks', JSON.stringify(tasks))
-  }, [tasks])
+  const fetchTodos = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/todos');
+      const result = await response.json();
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!task.trim()) {
-      setError('Task cannot be empty')
-      return
+      if (result.success) {
+        setTodos(result.data);
+        setError(null);
+      } else {
+        setError('Failed to fetch todos');
+      }
+    } catch (error) {
+      setError('Error fetching todos: ' + error.message);
+    } finally {
+      setLoading(false);
     }
-    setTasks([...tasks, task.trim()])
-    setTask('')
-    setError('')
+  };
+
+  const handleAddTodo = (newTodo) => {
+    setTodos([newTodo, ...todos]);
+  };
+
+  const handleUpdateTodo = (updatedTodo) => {
+    setTodos(todos.map(todo => 
+      todo._id === updatedTodo._id ? updatedTodo : todo
+    ));
+  };
+
+  const handleDeleteTodo = (todoId) => {
+    setTodos(todos.filter(todo => todo._id !== todoId));
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading todos...</p>
+        </div>
+      </div>
+    );
   }
 
-  const handleDelete = (index) => {
-    const newTasks = [...tasks]
-    newTasks.splice(index, 1)
-    setTasks(newTasks)
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-xl mb-4">⚠️ Error</div>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={fetchTodos}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-100 to-blue-100 p-6 flex flex-col items-center">
-      <div className="bg-white shadow-xl rounded-2xl p-8 max-w-md w-full">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-blue-600">To-Do List</h1>
-          <Link href="/tutorial">
-            <button className="bg-blue-500 text-white px-4 py-1.5 text-sm rounded-lg hover:bg-blue-600 transition">
-              Tutorial
-            </button>
-          </Link>
-        </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Header */}
+        <header className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <CheckCircle2 size={40} className="text-blue-600" />
+            <h1 className="text-4xl font-bold text-gray-800">Todo App</h1>
+          </div>
+          <p className="text-gray-600 text-lg">
+            Stay organized and get things done!
+          </p>
+        </header>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input
-            type="text"
-            value={task}
-            onChange={(e) => setTask(e.target.value)}
-            className="p-3 rounded-xl text-black border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="Enter a task"
-          />
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button
-            type="submit"
-            className="bg-blue-500 text-white py-2 px-4 rounded-xl hover:bg-blue-600 transition"
-          >
-            Add Task
-          </button>
-        </form>
+        {/* Todo Form */}
+        <TodoForm onAddTodo={handleAddTodo} />
 
-        <ul className="mt-6 space-y-2">
-          {tasks.length === 0 && <p className="text-gray-500 text-center">No tasks yet.</p>}
-          {tasks.map((t, i) => (
-            <li key={i} className="flex text-black justify-between items-center bg-blue-100 p-3 rounded-xl">
-              <span>{t}</span>
-              <button
-                onClick={() => handleDelete(i)}
-                className="text-red-500 hover:text-red-700"
-              >
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
+        {/* Todo List */}
+        <TodoList
+          todos={todos}
+          onUpdateTodo={handleUpdateTodo}
+          onDeleteTodo={handleDeleteTodo}
+        />
       </div>
-    </main>
-  )
+    </div>
+  );
 }
